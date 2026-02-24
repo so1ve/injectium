@@ -1,5 +1,6 @@
 [package]
 name = "injectium-macro"
+description = "Procedural macros for injectium"
 version.workspace = true
 edition.workspace = true
 authors.workspace = true

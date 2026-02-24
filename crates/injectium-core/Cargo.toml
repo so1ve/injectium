@@ -1,5 +1,6 @@
 [package]
 name = "injectium-core"
+description = "Core implementation and utilities for injectium"
 version.workspace = true
 edition.workspace = true
 authors.workspace = true

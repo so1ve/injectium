@@ -1,5 +1,6 @@
 [package]
 name = "injectium"
+description = "Minimal dependency-injection implementation for Rust"
 version.workspace = true
 edition.workspace = true
 authors.workspace = true
