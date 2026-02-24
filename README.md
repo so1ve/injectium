@@ -3,6 +3,8 @@
 [![Crates.io Version](https://img.shields.io/crates/v/injectium)](https://crates.io/crates/injectium)
 [![docs.rs](https://img.shields.io/docsrs/injectium)](https://docs.rs/injectium)
 
+A minimal dependency-injection implementation for Rust
+
 ## Installation
 
 ```bash
