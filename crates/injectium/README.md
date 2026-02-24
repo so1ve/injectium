@@ -16,8 +16,7 @@ cargo add injectium
 ```rust
 use injectium::{Injectable, container};
 
-// Define services that need DI
-#[derive(Clone, Injectable)]
+#[derive(Clone)]
 struct Db {
     conn: String,
 }
