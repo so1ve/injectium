@@ -34,7 +34,7 @@ use syn::{DeriveInput, parse_macro_input};
 /// use injectium::Injectable;
 /// use std::sync::Arc;
 ///
-/// #[derive(Clone, Injectable)]
+/// #[derive(Clone)]
 /// struct Database {
 ///     conn: Arc<Connection>,
 /// }
