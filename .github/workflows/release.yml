@@ -1,0 +1,18 @@
+name: Release
+
+on:
+  push:
+    branches: [main]
+
+jobs:
+  release-pr:
+    name: Create Release PR
+    uses: rayxiom/workflows/.github/workflows/rust-release.yml@v1
+    with:
+      command: release-pr
+
+  release:
+    name: Release
+    uses: rayxiom/workflows/.github/workflows/rust-release.yml@v1
+    with:
+      command: release

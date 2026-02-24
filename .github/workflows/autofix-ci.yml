@@ -1,0 +1,11 @@
+name: autofix.ci
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  autofix:
+    uses: rayxiom/workflows/.github/workflows/rust-autofix-ci.yml@v1
