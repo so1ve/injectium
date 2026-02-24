@@ -1,0 +1,16 @@
+[package]
+name = "injectium-core"
+version.workspace = true
+edition.workspace = true
+authors.workspace = true
+license.workspace = true
+repository.workspace = true
+
+[features]
+default = ["sync"]
+debug = []
+sync = []
+
+[dependencies]
+cfg_block.workspace = true
+inventory.workspace = true

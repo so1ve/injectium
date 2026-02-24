@@ -1,0 +1,15 @@
+[package]
+name = "injectium-salvo"
+version.workspace = true
+edition.workspace = true
+authors.workspace = true
+license.workspace = true
+repository.workspace = true
+
+[features]
+oapi = ["salvo/oapi"]
+
+[dependencies]
+cfg_block.workspace = true
+injectium = { workspace = true, features = ["debug"] }
+salvo = { workspace = true, features = ["affix-state"] }

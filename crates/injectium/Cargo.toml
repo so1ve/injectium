@@ -1,0 +1,18 @@
+[package]
+name = "injectium"
+version.workspace = true
+edition.workspace = true
+authors.workspace = true
+license.workspace = true
+repository.workspace = true
+
+[features]
+default = ["derive", "sync"]
+derive = ["dep:injectium-macro"]
+sync = []
+debug = ["injectium-core/debug"]
+
+[dependencies]
+injectium-core.workspace = true
+injectium-macro = { workspace = true, optional = true }
+inventory.workspace = true

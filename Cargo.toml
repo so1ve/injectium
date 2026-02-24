@@ -1,13 +1,27 @@
-[package]
-name = "pkg-name"
+[workspace]
+resolver = "3"
+members = ["crates/*"]
+
+[workspace.package]
 version = "0.1.0"
-description = ""
 edition = "2024"
 authors = ["Ray <i@mk1.io>"]
 license = "MIT"
-repository = "https://github.com/so1ve/pkg-name"
+repository = "https://github.com/so1ve/injectium"
 
-[lints.clippy]
+[workspace.dependencies]
+cfg_block = "0.2"
+injectium = { path = "crates/injectium" }
+injectium-core = { path = "crates/injectium-core" }
+injectium-macro = { path = "crates/injectium-macro" }
+injectium-salvo = { path = "crates/injectium-salvo" }
+inventory = "0.3.22"
+proc-macro2 = "1"
+quote = "1"
+salvo = { version = "0.89", features = ["affix-state"] }
+syn = "2"
+
+[workspace.lints.clippy]
 all = "warn"
 pedantic = "warn"
 nursery = "warn"

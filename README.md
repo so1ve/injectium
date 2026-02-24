@@ -1,17 +1,17 @@
-# pkg-name
+# injectium
 
-[![Crates.io Version](https://img.shields.io/crates/v/pkg-name)](https://crates.io/crates/pkg-name)
-[![docs.rs](https://img.shields.io/docsrs/pkg-name)](https://docs.rs/pkg-name)
+[![Crates.io Version](https://img.shields.io/crates/v/injectium)](https://crates.io/crates/injectium)
+[![docs.rs](https://img.shields.io/docsrs/injectium)](https://docs.rs/injectium)
 
 ## Installation
 
 ```bash
-cargo add pkg-name
+cargo add injectium
 ```
 
 ## Docs
 
-Please read [the documentation](https://docs.rs/pkg-name) for usage instructions and API reference.
+Please read [the documentation](https://docs.rs/injectium) for usage instructions and API reference.
 
 ## License
 
