@@ -10,7 +10,7 @@ mod inject;
 use proc_macro::TokenStream;
 use syn::{DeriveInput, parse_macro_input};
 
-/// Derives an implementation of the `injectium_core::Injectable` trait.
+/// Derives an implementation of the `injectium::Injectable` trait.
 ///
 /// When applied to a named struct, this macro generates:
 ///
