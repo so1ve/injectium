@@ -11,10 +11,10 @@ repository = "https://github.com/so1ve/injectium"
 
 [workspace.dependencies]
 cfg_block = "0.2"
-injectium = { path = "crates/injectium" }
-injectium-core = { path = "crates/injectium-core" }
-injectium-macro = { path = "crates/injectium-macro" }
-injectium-salvo = { path = "crates/injectium-salvo" }
+injectium = { path = "crates/injectium", version = "0.1" }
+injectium-core = { path = "crates/injectium-core", version = "0.1" }
+injectium-macro = { path = "crates/injectium-macro", version = "0.1" }
+injectium-salvo = { path = "crates/injectium-salvo", version = "0.1" }
 inventory = "0.3.22"
 proc-macro2 = "1"
 quote = "1"
