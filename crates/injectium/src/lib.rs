@@ -18,12 +18,14 @@
 //! #[derive(Injectable)]
 //! struct Service {
 //!     db: Db,
+//!     random_string: String,
 //! }
 //!
 //! // At startup, build the container
 //! let c = container! {
 //!     singletons: [
 //!         Db { conn: "postgres://localhost".into() },
+//!         String::from("connection string"),
 //!     ],
 //! };
 //!
@@ -32,6 +34,9 @@
 //!
 //! // Later, resolve services
 //! let svc = Service::from_container(&c);
+//!
+//! assert_eq!(svc.db.conn, "postgres://localhost");
+//! assert_eq!(svc.random_string, "connection string");
 //! ```
 //!
 //! # Key Types
@@ -45,35 +50,9 @@
 //! - [`declare_dependency!`] – manually declare a type is required (usually
 //!   automatic via `#[derive(Injectable)]`).
 
-pub use injectium_core::{Container, ContainerBuilder, DeclaredDependency, Injectable, container};
+pub use injectium_core::{
+    Container, ContainerBuilder, DeclaredDependency, Injectable, container, declare_dependency,
+    inventory,
+};
 #[cfg(feature = "derive")]
 pub use injectium_macro::Injectable;
-// Re-export inventory so users don't need a direct dependency on it.
-pub use inventory;
-
-/// Declare that a type `$ty` must be present in the [`Container`].
-///
-/// Registers a [`DeclaredDependency`] entry collected at link time by
-/// [`inventory`]. Call [`Container::validate`] at startup to assert all
-/// declared types are registered.
-///
-/// `#[derive(Injectable)]` calls this automatically for every field type, so
-/// manual use is only needed when calling `container.get::<T>()` directly
-/// without going through [`Injectable`].
-///
-/// # Example
-///
-/// ```ignore
-/// injectium::declare_dependency!(MyService);
-/// ```
-#[macro_export]
-macro_rules! declare_dependency {
-    ($ty:ty) => {
-        $crate::inventory::submit! {
-            $crate::DeclaredDependency {
-                type_id: ::std::any::TypeId::of::<$ty>,
-                type_name: ::std::stringify!($ty),
-            }
-        }
-    };
-}

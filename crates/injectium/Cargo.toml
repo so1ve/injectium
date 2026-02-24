@@ -16,4 +16,3 @@ debug = ["injectium-core/debug"]
 [dependencies]
 injectium-core.workspace = true
 injectium-macro = { workspace = true, optional = true }
-inventory.workspace = true

@@ -83,6 +83,7 @@ mod inject;
 
 pub use container::{Container, ContainerBuilder, DeclaredDependency};
 pub use inject::Injectable;
+pub use inventory;
 
 /// Declarative macro for building a container with singletons and/or factory
 /// providers.
@@ -123,6 +124,33 @@ macro_rules! container {
             $(.factory($factory))*
             .build()
     }};
+}
+
+/// Declare that a type `$ty` must be present in the [`Container`].
+///
+/// Registers a [`DeclaredDependency`] entry collected at link time by
+/// [`inventory`]. Call [`Container::validate`] at startup to assert all
+/// declared types are registered.
+///
+/// `#[derive(Injectable)]` calls this automatically for every field type, so
+/// manual use is only needed when calling `container.get::<T>()` directly
+/// without going through [`Injectable`].
+///
+/// # Example
+///
+/// ```ignore
+/// injectium::declare_dependency!(MyService);
+/// ```
+#[macro_export]
+macro_rules! declare_dependency {
+    ($ty:ty) => {
+        $crate::inventory::submit! {
+            $crate::DeclaredDependency {
+                type_id: ::std::any::TypeId::of::<$ty>,
+                type_name: ::std::stringify!($ty),
+            }
+        }
+    };
 }
 
 #[cfg(test)]
