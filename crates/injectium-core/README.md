@@ -40,4 +40,4 @@ See [docs.rs](https://docs.rs/injectium-core) for full API documentation.
 
 ## License
 
-[MIT](../LICENSE)
+[MIT](../LICENSE). Made with ❤️ by [Ray](https://github.com/so1ve)
