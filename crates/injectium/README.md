@@ -11,6 +11,36 @@ A minimal dependency-injection implementation for Rust.
 cargo add injectium
 ```
 
+## Quick Start
+
+```rust
+use injectium::{Injectable, container};
+
+// Define services that need DI
+#[derive(Clone, Injectable)]
+struct Db {
+    conn: String,
+}
+
+#[derive(Injectable)]
+struct Service {
+    db: Db,
+}
+
+// At startup, build the container
+let c = container! {
+    singletons: [
+        Db { conn: "postgres://localhost".into() },
+    ],
+};
+
+// Validate everything is wired up
+c.validate();
+
+// Later, resolve services
+let svc = Service::from_container(&c);
+```
+
 ## Documentation
 
 See [docs.rs](https://docs.rs/injectium) for full API documentation.
@@ -26,4 +56,4 @@ See [docs.rs](https://docs.rs/injectium) for full API documentation.
 
 ## License
 
-[MIT](./LICENSE). Made with ❤️ by [Ray](https://github.com/so1ve)
+[MIT](../LICENSE). Made with ❤️ by [Ray](https://github.com/so1ve)

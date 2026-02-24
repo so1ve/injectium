@@ -1,4 +1,4 @@
-//! A minimal, zero-dependency dependency-injection container for Rust.
+//! A minimal dependency-injection container for Rust.
 //!
 //! Injectium provides a runtime DI container with two registration strategies:
 //!

@@ -9,7 +9,7 @@ use crate::Container;
 ///
 /// The `#[derive(Injectable)]` macro implements both methods for any named
 /// struct whose fields all implement `Clone` and are registered in the
-/// container. It also emits a [`declare_dependency!`] call for every field
+/// container. It also emits a `declare_dependency!` call for every field
 /// type so that [`Container::validate`] can catch missing registrations at
 /// startup.
 pub trait Injectable: Sized {

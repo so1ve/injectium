@@ -10,7 +10,7 @@ mod inject;
 use proc_macro::TokenStream;
 use syn::{DeriveInput, parse_macro_input};
 
-/// Derives an implementation of the [`injectium_core::Injectable`] trait.
+/// Derives an implementation of the `injectium_core::Injectable` trait.
 ///
 /// When applied to a named struct, this macro generates:
 ///
@@ -19,14 +19,14 @@ use syn::{DeriveInput, parse_macro_input};
 /// 2. An implementation of `try_from_container(&Container) -> Option<Self>`
 ///    that uses `container.try_get::<T>()` for graceful missing-dependency
 ///    handling.
-/// 3. A [`injectium::declare_dependency!`] call for each field type, enabling
-///    [`Container::validate`] to check all dependencies at startup.
+/// 3. A `injectium::declare_dependency!` call for each field type, enabling
+///    `Container::validate` to check all dependencies at startup.
 ///
 /// # Requirements
 ///
 /// - The struct must be a named struct (not a tuple struct or enum).
 /// - All field types must implement `Clone`.
-/// - All field types must implement `Send + Sync + 'static`.
+/// - All field types must be `'static`.
 ///
 /// # Example
 ///

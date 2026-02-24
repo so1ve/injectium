@@ -59,7 +59,7 @@ pub use inventory;
 ///
 /// `#[derive(Injectable)]` calls this automatically for every field type, so
 /// manual use is only needed when calling `container.get::<T>()` directly
-/// without going through `Injectable`.
+/// without going through [`Injectable`].
 ///
 /// # Example
 ///

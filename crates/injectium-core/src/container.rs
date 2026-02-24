@@ -23,10 +23,10 @@ cfg_block! {
 /// entry per field type. [`Container::validate`] iterates all collected
 /// entries at startup to confirm every required type is present.
 ///
-/// You rarely construct this manually; use [`declare_dependency!`] instead.
+/// You rarely construct this manually; use `declare_dependency!` instead.
 pub struct DeclaredDependency {
     /// A function pointer returning the [`TypeId`] of the required type.
-    /// Stored as a fn pointer rather than a value because `TypeId` is not
+    /// Stored as a fn pointer rather than a value because [`TypeId`] is not
     /// usable in `const` contexts on stable/nightly without a feature flag.
     pub type_id: fn() -> TypeId,
     /// Human-readable name of the type, produced by `stringify!`.
@@ -45,9 +45,9 @@ inventory::collect!(DeclaredDependency);
 ///   [`resolve`](Container::resolve), with access to the container so it can
 ///   pull its own dependencies.
 ///
-/// Containers are built through [`ContainerBuilder`] (or the [`container!`]
-/// macro) and are typically wrapped in an [`Arc`](std::sync::Arc) for sharing
-/// across threads.
+/// Containers are built through [`ContainerBuilder`] (or the
+/// [`container!`](crate::container!) macro) and are typically wrapped in an
+/// [`Arc`](std::sync::Arc) for sharing across threads.
 ///
 /// # Example
 ///
@@ -95,9 +95,10 @@ cfg_block! {
 
 /// A builder for [`Container`].
 ///
-/// Obtain one via [`Container::builder`] or the [`container!`] macro.
-/// All methods take `self` by value and return `Self`, enabling a fluent
-/// builder chain. Call [`build`](ContainerBuilder::build) to finalise.
+/// Obtain one via [`Container::builder`] or the
+/// [`container!`](crate::container!) macro. All methods take `self` by value
+/// and return `Self`, enabling a fluent builder chain. Call
+/// [`build`](ContainerBuilder::build) to finalise.
 ///
 /// # Example
 ///
@@ -235,7 +236,7 @@ impl Container {
             || self.factories.contains_key(&TypeId::of::<T>())
     }
 
-    /// Validates that every dependency declared via [`declare_dependency!`] is
+    /// Validates that every dependency declared via `declare_dependency!` is
     /// registered in this container.
     ///
     /// Intended to be called once at application startup, immediately after
