@@ -3,7 +3,7 @@ resolver = "3"
 members = ["crates/*"]
 
 [workspace.package]
-version = "0.2.1"
+version = "0.3.0"
 edition = "2024"
 authors = ["Ray <i@mk1.io>"]
 license = "MIT"
@@ -11,10 +11,10 @@ repository = "https://github.com/so1ve/injectium"
 
 [workspace.dependencies]
 cfg_block = "0.2"
-injectium = { path = "crates/injectium", version = "0.2" }
-injectium-core = { path = "crates/injectium-core", version = "0.2" }
-injectium-macro = { path = "crates/injectium-macro", version = "0.2" }
-injectium-salvo = { path = "crates/injectium-salvo", version = "0.2" }
+injectium = { path = "crates/injectium", version = "0.3" }
+injectium-core = { path = "crates/injectium-core", version = "0.3" }
+injectium-macro = { path = "crates/injectium-macro", version = "0.3" }
+injectium-salvo = { path = "crates/injectium-salvo", version = "0.3" }
 inventory = "0.3.22"
 proc-macro2 = "1"
 quote = "1"

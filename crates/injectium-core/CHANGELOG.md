@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.3.0](https://github.com/so1ve/injectium/compare/injectium-core-v0.2.1...injectium-core-v0.3.0) - 2026-03-03
+
+### Added
+
+- *(core)* [**breaking**] use container with capacity in `container!` macro output automatically, remove `capacity` field
+
 ## [0.2.1](https://github.com/so1ve/injectium/compare/injectium-core-v0.2.0...injectium-core-v0.2.1) - 2026-03-03
 
 ### Added
