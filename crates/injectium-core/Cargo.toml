@@ -17,3 +17,10 @@ ahash = ["dep:ahash"]
 ahash = { version = "0.8", optional = true }
 cfg_block.workspace = true
 inventory.workspace = true
+
+[dev-dependencies]
+criterion = "0.8"
+
+[[bench]]
+name = "resolve"
+harness = false
