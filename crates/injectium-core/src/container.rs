@@ -188,9 +188,9 @@ impl ContainerBuilder {
 
 impl Container {
     #[inline]
-    fn singleton_ref_unchecked<T: SyncBounds>(boxed: &Box<AnyDyn>) -> &T {
-        debug_assert!((&**boxed).is::<T>());
-        let ptr = (&**boxed as *const AnyDyn).cast::<T>();
+    fn cast_singleton_unchecked<T: SyncBounds>(erased: &AnyDyn) -> &T {
+        debug_assert!(erased.is::<T>());
+        let ptr = (erased as *const AnyDyn).cast::<T>();
 
         unsafe {
             // SAFETY: `singleton` stores values using `TypeId::of::<T>()` as key,
@@ -201,9 +201,9 @@ impl Container {
     }
 
     #[inline]
-    fn resolve_value_unchecked<T: SyncBounds>(boxed: Box<AnyDyn>) -> T {
-        debug_assert!((&*boxed).is::<T>());
-        let ptr = Box::into_raw(boxed).cast::<T>();
+    fn cast_owned_unchecked<T: SyncBounds>(owned_erased: Box<AnyDyn>) -> T {
+        debug_assert!((*owned_erased).is::<T>());
+        let ptr = Box::into_raw(owned_erased).cast::<T>();
 
         unsafe {
             // SAFETY: `factory::<T>` stores closures under `TypeId::of::<T>()` and
@@ -248,7 +248,7 @@ impl Container {
     pub fn try_get<T: SyncBounds>(&self) -> Option<&T> {
         self.singletons
             .get(&TypeId::of::<T>())
-            .map(Self::singleton_ref_unchecked::<T>)
+            .map(|erased| Self::cast_singleton_unchecked::<T>(erased.as_ref()))
     }
 
     /// Invokes the factory for type `T` and returns the produced value.
@@ -275,7 +275,7 @@ impl Container {
         let factory = self.factories.get(&TypeId::of::<T>())?;
         let boxed = factory(self);
 
-        Some(Self::resolve_value_unchecked::<T>(boxed))
+        Some(Self::cast_owned_unchecked::<T>(boxed))
     }
 
     /// Returns `true` if a singleton **or** factory is registered for `T`.
