@@ -127,9 +127,15 @@ impl ContainerBuilder {
     /// Creates an empty builder with no registrations.
     #[must_use]
     pub fn new() -> Self {
+        Self::with_capacity(0, 0)
+    }
+
+    /// Creates an empty builder with preallocated storage capacities.
+    #[must_use]
+    pub fn with_capacity(singleton_capacity: usize, factory_capacity: usize) -> Self {
         Self {
-            singletons: HashMap::new(),
-            factories: HashMap::new(),
+            singletons: HashMap::with_capacity(singleton_capacity),
+            factories: HashMap::with_capacity(factory_capacity),
         }
     }
 
@@ -207,6 +213,15 @@ impl Container {
     #[must_use]
     pub fn builder() -> ContainerBuilder {
         ContainerBuilder::new()
+    }
+
+    /// Returns a new [`ContainerBuilder`] with preallocated storage capacities.
+    #[must_use]
+    pub fn builder_with_capacity(
+        singleton_capacity: usize,
+        factory_capacity: usize,
+    ) -> ContainerBuilder {
+        ContainerBuilder::with_capacity(singleton_capacity, factory_capacity)
     }
 
     /// Returns a shared reference to the singleton of type `T`.

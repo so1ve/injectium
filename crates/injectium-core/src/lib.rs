@@ -8,7 +8,7 @@
 //! # Quick Start
 //!
 //! ```
-//! use injectium_core::{Container, container};
+//! use injectium_core::{container, Container};
 //!
 //! // Build a container with singletons and/or factories
 //! let c = container! {
@@ -105,6 +105,22 @@ pub use inventory;
 /// ```
 #[macro_export]
 macro_rules! container {
+    (capacity: { singletons: $singleton_capacity:expr, factories: $factory_capacity:expr } $(,)? singletons: [$( $singleton:expr ),* $(,)?] $(,)? providers: [$( $factory:expr ),* $(,)?] $(,)?) => {{
+        $crate::Container::builder_with_capacity($singleton_capacity, $factory_capacity)
+            $(.singleton($singleton))*
+            $(.factory($factory))*
+            .build()
+    }};
+    (capacity: { singletons: $singleton_capacity:expr, factories: $factory_capacity:expr } $(,)? singletons: [$( $singleton:expr ),* $(,)?] $(,)?) => {{
+        $crate::Container::builder_with_capacity($singleton_capacity, $factory_capacity)
+            $(.singleton($singleton))*
+            .build()
+    }};
+    (capacity: { singletons: $singleton_capacity:expr, factories: $factory_capacity:expr } $(,)? providers: [$( $factory:expr ),* $(,)?] $(,)?) => {{
+        $crate::Container::builder_with_capacity($singleton_capacity, $factory_capacity)
+            $(.factory($factory))*
+            .build()
+    }};
     // Both singletons and providers
     (singletons: [$( $singleton:expr ),* $(,)?] $(,)? providers: [$( $factory:expr ),* $(,)?] $(,)?) => {{
         $crate::Container::builder()
@@ -155,6 +171,7 @@ macro_rules! declare_dependency {
 
 #[cfg(test)]
 mod tests {
+    use crate::Container;
 
     #[test]
     fn empty_both() {
@@ -263,5 +280,31 @@ mod tests {
         };
         assert_eq!(c.singleton_count(), 1);
         assert_eq!(c.factory_count(), 1);
+    }
+
+    #[test]
+    fn with_capacity_builder() {
+        let c = Container::builder_with_capacity(2, 1)
+            .singleton(1_u32)
+            .singleton(2_u64)
+            .factory(|_c| 3_u8)
+            .build();
+
+        assert_eq!(c.singleton_count(), 2);
+        assert_eq!(c.factory_count(), 1);
+        assert_eq!(c.resolve::<u8>(), 3);
+    }
+
+    #[test]
+    fn with_capacity_macro() {
+        let c = container! {
+            capacity: { singletons: 2, factories: 1 },
+            singletons: [1_u32, 2_u64],
+            providers: [|_c| 3_u8],
+        };
+
+        assert_eq!(c.singleton_count(), 2);
+        assert_eq!(c.factory_count(), 1);
+        assert_eq!(c.resolve::<u8>(), 3);
     }
 }
