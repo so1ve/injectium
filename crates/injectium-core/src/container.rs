@@ -52,7 +52,7 @@ inventory::collect!(DeclaredDependency);
 /// # Example
 ///
 /// ```
-/// use injectium_core::{Container, container};
+/// use injectium_core::{container, Container};
 ///
 /// let c = container! {
 ///     singletons: [42_u32],
@@ -174,6 +174,33 @@ impl ContainerBuilder {
 }
 
 impl Container {
+    #[inline]
+    fn singleton_ref_unchecked<T: SyncBounds>(boxed: &Box<AnyDyn>) -> &T {
+        debug_assert!((&**boxed).is::<T>());
+        let ptr = (&**boxed as *const AnyDyn).cast::<T>();
+
+        unsafe {
+            // SAFETY: `singleton` stores values using `TypeId::of::<T>()` as key,
+            // and `try_get::<T>` looks up with the same key. Therefore the value
+            // behind this entry is guaranteed to be `T`.
+            &*ptr
+        }
+    }
+
+    #[inline]
+    fn resolve_value_unchecked<T: SyncBounds>(boxed: Box<AnyDyn>) -> T {
+        debug_assert!((&*boxed).is::<T>());
+        let ptr = Box::into_raw(boxed).cast::<T>();
+
+        unsafe {
+            // SAFETY: `factory::<T>` stores closures under `TypeId::of::<T>()` and
+            // each stored closure returns `Box::new(f(c))` where the concrete value
+            // is exactly `T`. `try_resolve::<T>` uses the same key, so this cast is
+            // valid and ownership is preserved when reconstructing the box.
+            *Box::from_raw(ptr)
+        }
+    }
+
     /// Returns a new [`ContainerBuilder`].
     ///
     /// Equivalent to [`ContainerBuilder::new`].
@@ -199,7 +226,7 @@ impl Container {
     pub fn try_get<T: SyncBounds>(&self) -> Option<&T> {
         self.singletons
             .get(&TypeId::of::<T>())
-            .and_then(|boxed| boxed.downcast_ref::<T>())
+            .map(Self::singleton_ref_unchecked::<T>)
     }
 
     /// Invokes the factory for type `T` and returns the produced value.
@@ -226,7 +253,7 @@ impl Container {
         let factory = self.factories.get(&TypeId::of::<T>())?;
         let boxed = factory(self);
 
-        boxed.downcast().ok().map(|b| *b)
+        Some(Self::resolve_value_unchecked::<T>(boxed))
     }
 
     /// Returns `true` if a singleton **or** factory is registered for `T`.
