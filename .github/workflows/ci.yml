@@ -9,3 +9,5 @@ on:
 jobs:
   ci:
     uses: rayxiom/workflows/.github/workflows/rust-ci.yml@v1
+    with:
+      test-command: cargo install cargo-expand && cargo test --all
