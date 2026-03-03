@@ -1,13 +1,5 @@
 use std::any::{Any, TypeId};
 
-cfg_block! {
-    if #[cfg(feature = "ahash")] {
-        use ahash::AHashMap as Map;
-    } else {
-        use std::collections::HashMap as Map;
-    }
-}
-
 use cfg_block::cfg_block;
 
 cfg_block! {
@@ -42,6 +34,16 @@ pub struct DeclaredDependency {
 
 inventory::collect!(DeclaredDependency);
 
+struct SingletonEntry {
+    type_id: TypeId,
+    value: Box<AnyDyn>,
+}
+
+struct FactoryEntry {
+    type_id: TypeId,
+    factory: Box<Factory>,
+}
+
 /// A runtime dependency-injection container.
 ///
 /// `Container` stores two kinds of registrations:
@@ -70,8 +72,8 @@ inventory::collect!(DeclaredDependency);
 /// assert_eq!(c.resolve::<&str>(), "hello");
 /// ```
 pub struct Container {
-    singletons: Map<TypeId, Box<AnyDyn>>,
-    factories: Map<TypeId, Box<Factory>>,
+    singletons: Box<[SingletonEntry]>,
+    factories: Box<[FactoryEntry]>,
 }
 
 cfg_block! {
@@ -120,8 +122,8 @@ cfg_block! {
 /// assert_eq!(*c.get::<u32>(), 42);
 /// ```
 pub struct ContainerBuilder {
-    singletons: Map<TypeId, Box<AnyDyn>>,
-    factories: Map<TypeId, Box<Factory>>,
+    singletons: Vec<SingletonEntry>,
+    factories: Vec<FactoryEntry>,
 }
 
 impl Default for ContainerBuilder {
@@ -141,8 +143,8 @@ impl ContainerBuilder {
     #[must_use]
     pub fn with_capacity(singleton_capacity: usize, factory_capacity: usize) -> Self {
         Self {
-            singletons: Map::with_capacity(singleton_capacity),
-            factories: Map::with_capacity(factory_capacity),
+            singletons: Vec::with_capacity(singleton_capacity),
+            factories: Vec::with_capacity(factory_capacity),
         }
     }
 
@@ -153,7 +155,20 @@ impl ContainerBuilder {
     /// silently replaces the first.
     #[must_use]
     pub fn singleton<T: SyncBounds>(mut self, value: T) -> Self {
-        self.singletons.insert(TypeId::of::<T>(), Box::new(value));
+        let type_id = TypeId::of::<T>();
+
+        if let Some(entry) = self
+            .singletons
+            .iter_mut()
+            .find(|entry| entry.type_id == type_id)
+        {
+            entry.value = Box::new(value);
+        } else {
+            self.singletons.push(SingletonEntry {
+                type_id,
+                value: Box::new(value),
+            });
+        }
 
         self
     }
@@ -170,8 +185,21 @@ impl ContainerBuilder {
         T: SyncBounds,
         F: Fn(&Container) -> T + SyncBounds,
     {
+        let type_id = TypeId::of::<T>();
         let f = move |c: &Container| -> Box<AnyDyn> { Box::new(f(c)) };
-        self.factories.insert(TypeId::of::<T>(), Box::new(f));
+
+        if let Some(entry) = self
+            .factories
+            .iter_mut()
+            .find(|entry| entry.type_id == type_id)
+        {
+            entry.factory = Box::new(f);
+        } else {
+            self.factories.push(FactoryEntry {
+                type_id,
+                factory: Box::new(f),
+            });
+        }
 
         self
     }
@@ -180,13 +208,35 @@ impl ContainerBuilder {
     #[must_use]
     pub fn build(self) -> Container {
         Container {
-            singletons: self.singletons,
-            factories: self.factories,
+            singletons: self.singletons.into_boxed_slice(),
+            factories: self.factories.into_boxed_slice(),
         }
     }
 }
 
 impl Container {
+    #[inline]
+    fn singleton_erased(&self, type_id: TypeId) -> Option<&AnyDyn> {
+        self.singletons
+            .iter()
+            .find(|entry| entry.type_id == type_id)
+            .map(|entry| entry.value.as_ref())
+    }
+
+    #[inline]
+    fn factory_for(&self, type_id: TypeId) -> Option<&Factory> {
+        self.factories
+            .iter()
+            .find(|entry| entry.type_id == type_id)
+            .map(|entry| entry.factory.as_ref())
+    }
+
+    #[inline]
+    fn contains_type_id(&self, type_id: TypeId) -> bool {
+        self.singletons.iter().any(|entry| entry.type_id == type_id)
+            || self.factories.iter().any(|entry| entry.type_id == type_id)
+    }
+
     #[inline]
     fn cast_singleton_unchecked<T: SyncBounds>(erased: &AnyDyn) -> &T {
         debug_assert!(erased.is::<T>());
@@ -246,9 +296,8 @@ impl Container {
     /// it is not registered.
     #[must_use]
     pub fn try_get<T: SyncBounds>(&self) -> Option<&T> {
-        self.singletons
-            .get(&TypeId::of::<T>())
-            .map(|erased| Self::cast_singleton_unchecked::<T>(erased.as_ref()))
+        self.singleton_erased(TypeId::of::<T>())
+            .map(Self::cast_singleton_unchecked::<T>)
     }
 
     /// Invokes the factory for type `T` and returns the produced value.
@@ -272,8 +321,7 @@ impl Container {
     /// `None` if no factory is registered for `T`.
     #[must_use]
     pub fn try_resolve<T: SyncBounds>(&self) -> Option<T> {
-        let factory = self.factories.get(&TypeId::of::<T>())?;
-        let boxed = factory(self);
+        let boxed = (self.factory_for(TypeId::of::<T>())?)(self);
 
         Some(Self::cast_owned_unchecked::<T>(boxed))
     }
@@ -281,8 +329,7 @@ impl Container {
     /// Returns `true` if a singleton **or** factory is registered for `T`.
     #[must_use]
     pub fn contains<T: 'static>(&self) -> bool {
-        self.singletons.contains_key(&TypeId::of::<T>())
-            || self.factories.contains_key(&TypeId::of::<T>())
+        self.contains_type_id(TypeId::of::<T>())
     }
 
     /// Validates that every dependency declared via `declare_dependency!` is
@@ -306,8 +353,7 @@ impl Container {
 
         for dep in inventory::iter::<DeclaredDependency> {
             let type_id = (dep.type_id)();
-            let registered =
-                self.singletons.contains_key(&type_id) || self.factories.contains_key(&type_id);
+            let registered = self.contains_type_id(type_id);
 
             if !registered {
                 missing.push(dep.type_name);

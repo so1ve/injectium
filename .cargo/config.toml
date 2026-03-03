@@ -1,3 +1,2 @@
 [alias]
 bench-resolve = "bench -p injectium-core --bench resolve"
-bench-resolve-ahash = "bench -p injectium-core --features ahash --bench resolve"
