@@ -8,7 +8,7 @@
 //! # Quick Start
 //!
 //! ```
-//! use injectium_core::{container, Container};
+//! use injectium_core::{Container, container};
 //!
 //! // Build a container with singletons and/or factories
 //! let c = container! {

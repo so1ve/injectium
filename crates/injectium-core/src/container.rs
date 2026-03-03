@@ -59,7 +59,7 @@ inventory::collect!(DeclaredDependency);
 /// # Example
 ///
 /// ```
-/// use injectium_core::{container, Container};
+/// use injectium_core::{Container, container};
 ///
 /// let c = container! {
 ///     singletons: [42_u32],
