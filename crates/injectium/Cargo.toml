@@ -12,6 +12,7 @@ default = ["derive", "sync"]
 derive = ["dep:injectium-macro"]
 sync = []
 debug = ["injectium-core/debug"]
+ahash = ["injectium-core/ahash"]
 
 [dependencies]
 injectium-core.workspace = true

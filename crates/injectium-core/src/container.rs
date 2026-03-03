@@ -1,5 +1,12 @@
 use std::any::{Any, TypeId};
-use std::collections::HashMap;
+
+cfg_block! {
+    if #[cfg(feature = "ahash")] {
+        use ahash::AHashMap as Map;
+    } else {
+        use std::collections::HashMap as Map;
+    }
+}
 
 use cfg_block::cfg_block;
 
@@ -63,8 +70,8 @@ inventory::collect!(DeclaredDependency);
 /// assert_eq!(c.resolve::<&str>(), "hello");
 /// ```
 pub struct Container {
-    singletons: HashMap<TypeId, Box<AnyDyn>>,
-    factories: HashMap<TypeId, Box<Factory>>,
+    singletons: Map<TypeId, Box<AnyDyn>>,
+    factories: Map<TypeId, Box<Factory>>,
 }
 
 cfg_block! {
@@ -113,8 +120,8 @@ cfg_block! {
 /// assert_eq!(*c.get::<u32>(), 42);
 /// ```
 pub struct ContainerBuilder {
-    singletons: HashMap<TypeId, Box<AnyDyn>>,
-    factories: HashMap<TypeId, Box<Factory>>,
+    singletons: Map<TypeId, Box<AnyDyn>>,
+    factories: Map<TypeId, Box<Factory>>,
 }
 
 impl Default for ContainerBuilder {
@@ -134,8 +141,8 @@ impl ContainerBuilder {
     #[must_use]
     pub fn with_capacity(singleton_capacity: usize, factory_capacity: usize) -> Self {
         Self {
-            singletons: HashMap::with_capacity(singleton_capacity),
-            factories: HashMap::with_capacity(factory_capacity),
+            singletons: Map::with_capacity(singleton_capacity),
+            factories: Map::with_capacity(factory_capacity),
         }
     }
 
