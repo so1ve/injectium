@@ -12,6 +12,7 @@ default = ["derive", "sync"]
 derive = ["dep:injectium-macro"]
 sync = []
 debug = ["injectium-core/debug"]
+validation = ["injectium-core/validation"]
 
 [dependencies]
 injectium-core.workspace = true

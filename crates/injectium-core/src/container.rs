@@ -16,23 +16,29 @@ cfg_block! {
     }
 }
 
-/// A dependency declaration collected at link time via [`inventory`].
-///
-/// Each `#[derive(Injectable)]` struct registers one `DeclaredDependency`
-/// entry per field type. [`Container::validate`] iterates all collected
-/// entries at startup to confirm every required type is present.
-///
-/// You rarely construct this manually; use `declare_dependency!` instead.
-pub struct DeclaredDependency {
-    /// A function pointer returning the [`TypeId`] of the required type.
-    /// Stored as a fn pointer rather than a value because [`TypeId`] is not
-    /// usable in `const` contexts on stable/nightly without a feature flag.
-    pub type_id: fn() -> TypeId,
-    /// Human-readable name of the type, produced by `stringify!`.
-    pub type_name: &'static str,
-}
+cfg_block! {
+    #[cfg(feature = "validation")] {
+        /// A dependency declaration collected at link time via [`inventory`].
+        ///
+        /// Available when the `validation` feature is enabled.
+        ///
+        /// Each `#[derive(Injectable)]` struct registers one `DeclaredDependency`
+        /// entry per field type. [`Container::validate`] iterates all collected
+        /// entries at startup to confirm every required type is present.
+        ///
+        /// You rarely construct this manually; use `declare_dependency!` instead.
+        pub struct DeclaredDependency {
+            /// A function pointer returning the [`TypeId`] of the required type.
+            /// Stored as a fn pointer rather than a value because [`TypeId`] is not
+            /// usable in `const` contexts on stable/nightly without a feature flag.
+            pub type_id: fn() -> TypeId,
+            /// Human-readable name of the type, produced by `stringify!`.
+            pub type_name: &'static str,
+        }
 
-inventory::collect!(DeclaredDependency);
+        inventory::collect!(DeclaredDependency);
+    }
+}
 
 struct SingletonEntry {
     type_id: TypeId,
@@ -335,6 +341,8 @@ impl Container {
     /// Validates that every dependency declared via `declare_dependency!` is
     /// registered in this container.
     ///
+    /// Available when the `validation` feature is enabled.
+    ///
     /// Intended to be called once at application startup, immediately after
     /// the container is built. If any declared dependency is absent, the
     /// method panics with a message that lists every missing type by name,
@@ -348,6 +356,7 @@ impl Container {
     ///
     /// Panics if one or more declared dependencies are not registered,
     /// printing the names of all missing types.
+    #[cfg(feature = "validation")]
     pub fn validate(&self) {
         let mut missing: Vec<&'static str> = Vec::new();
 

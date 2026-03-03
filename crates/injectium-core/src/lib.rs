@@ -81,9 +81,9 @@
 mod container;
 mod inject;
 
-pub use container::{Container, ContainerBuilder, DeclaredDependency};
+use cfg_block::cfg_block;
+pub use container::{Container, ContainerBuilder};
 pub use inject::Injectable;
-pub use inventory;
 
 /// Declarative macro for building a container with singletons and/or factory
 /// providers.
@@ -142,31 +142,44 @@ macro_rules! container {
     }};
 }
 
-/// Declare that a type `$ty` must be present in the [`Container`].
-///
-/// Registers a [`DeclaredDependency`] entry collected at link time by
-/// [`inventory`]. Call [`Container::validate`] at startup to assert all
-/// declared types are registered.
-///
-/// `#[derive(Injectable)]` calls this automatically for every field type, so
-/// manual use is only needed when calling `container.get::<T>()` directly
-/// without going through [`Injectable`].
-///
-/// # Example
-///
-/// ```ignore
-/// injectium::declare_dependency!(MyService);
-/// ```
-#[macro_export]
-macro_rules! declare_dependency {
-    ($ty:ty) => {
-        $crate::inventory::submit! {
-            $crate::DeclaredDependency {
-                type_id: ::std::any::TypeId::of::<$ty>,
-                type_name: ::std::stringify!($ty),
-            }
+cfg_block! {
+    if #[cfg(feature = "validation")] {
+        pub use container::DeclaredDependency;
+        pub use inventory;
+
+        /// Declare that a type `$ty` must be present in the [`Container`].
+        ///
+        /// Registers a [`DeclaredDependency`] entry collected at link time by
+        /// [`inventory`]. Call [`Container::validate`] at startup to assert all
+        /// declared types are registered.
+        ///
+        /// `#[derive(Injectable)]` calls this automatically for every field type, so
+        /// manual use is only needed when calling `container.get::<T>()` directly
+        /// without going through [`Injectable`].
+        ///
+        /// # Example
+        ///
+        /// ```ignore
+        /// injectium::declare_dependency!(MyService);
+        /// ```
+        #[macro_export]
+        macro_rules! declare_dependency {
+            ($ty:ty) => {
+                $crate::inventory::submit! {
+                    $crate::DeclaredDependency {
+                        type_id: ::std::any::TypeId::of::<$ty>,
+                        type_name: ::std::stringify!($ty),
+                    }
+                }
+            };
         }
-    };
+    } else {
+        /// No-op when validation is disabled.
+        #[macro_export]
+        macro_rules! declare_dependency {
+            ($ty:ty) => {};
+        }
+    }
 }
 
 #[cfg(test)]

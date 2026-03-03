@@ -8,13 +8,14 @@ license.workspace = true
 repository.workspace = true
 
 [features]
-default = ["sync"]
+default = ["sync", "validation"]
 debug = []
 sync = []
+validation = ["dep:inventory"]
 
 [dependencies]
 cfg_block.workspace = true
-inventory.workspace = true
+inventory = { workspace = true, optional = true }
 
 [dev-dependencies]
 criterion = "0.8"
