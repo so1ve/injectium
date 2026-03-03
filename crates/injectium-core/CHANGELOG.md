@@ -7,6 +7,22 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.2.1](https://github.com/so1ve/injectium/compare/injectium-core-v0.2.0...injectium-core-v0.2.1) - 2026-03-03
+
+### Added
+
+- move validation logic behind `validation` feature gate
+
+### Other
+
+- *(core)* switch container runtime storage from HashMap to packed slices
+- *(core)* refactor helper functions and make clippy happy
+- apply automatic fixes
+- *(bench)* add resolve benchmarks and cargo aliases
+- *(core)* add optional ahash map backend for TypeId storage
+- *(core)* add capacity-aware container builder and macro variants
+- *(core)* remove runtime downcast checks in container hot path
+
 ## [0.2.0](https://github.com/so1ve/injectium/compare/injectium-core-v0.1.1...injectium-core-v0.2.0) - 2026-02-24
 
 ### Added

@@ -7,6 +7,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.2.1](https://github.com/so1ve/injectium/compare/injectium-macro-v0.2.0...injectium-macro-v0.2.1) - 2026-03-03
+
+### Other
+
+- remove Injectable derive from Database struct
+- `injectium_core` -> `injectium`
+
 ## [0.2.0](https://github.com/so1ve/injectium/compare/injectium-macro-v0.1.1...injectium-macro-v0.2.0) - 2026-02-24
 
 ### Other
