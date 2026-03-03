@@ -19,6 +19,7 @@ inventory = { workspace = true, optional = true }
 
 [dev-dependencies]
 criterion = "0.8"
+macrotest = "1"
 
 [[bench]]
 name = "resolve"

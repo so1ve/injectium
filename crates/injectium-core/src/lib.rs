@@ -105,6 +105,12 @@ pub use inject::Injectable;
 /// ```
 #[macro_export]
 macro_rules! container {
+    (@replace_expr $_expr:expr, $sub:expr) => {
+        $sub
+    };
+    (@count_exprs $( $expr:expr ),* $(,)?) => {
+        <[()]>::len(&[$($crate::container!(@replace_expr $expr, ())),*])
+    };
     (capacity: { singletons: $singleton_capacity:expr, factories: $factory_capacity:expr } $(,)? singletons: [$( $singleton:expr ),* $(,)?] $(,)? providers: [$( $factory:expr ),* $(,)?] $(,)?) => {{
         $crate::Container::builder_with_capacity($singleton_capacity, $factory_capacity)
             $(.singleton($singleton))*
@@ -123,20 +129,29 @@ macro_rules! container {
     }};
     // Both singletons and providers
     (singletons: [$( $singleton:expr ),* $(,)?] $(,)? providers: [$( $factory:expr ),* $(,)?] $(,)?) => {{
-        $crate::Container::builder()
+        $crate::Container::builder_with_capacity(
+            $crate::container!(@count_exprs $($singleton),*),
+            $crate::container!(@count_exprs $($factory),*),
+        )
             $(.singleton($singleton))*
             $(.factory($factory))*
             .build()
     }};
     // Only singletons
     (singletons: [$( $singleton:expr ),* $(,)?] $(,)?) => {{
-        $crate::Container::builder()
+        $crate::Container::builder_with_capacity(
+            $crate::container!(@count_exprs $($singleton),*),
+            0,
+        )
             $(.singleton($singleton))*
             .build()
     }};
     // Only providers
     (providers: [$( $factory:expr ),* $(,)?] $(,)?) => {{
-        $crate::Container::builder()
+        $crate::Container::builder_with_capacity(
+            0,
+            $crate::container!(@count_exprs $($factory),*),
+        )
             $(.factory($factory))*
             .build()
     }};
