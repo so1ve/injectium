@@ -1,31 +1,25 @@
 //! A minimal dependency-injection container for Rust.
 //!
-//! Injectium provides a runtime DI container with two registration strategies:
+//! Injectium provides a runtime DI container built around providers.
 //!
-//! - **Singletons** – a single instance shared across all consumers.
-//! - **Factories** – a closure that produces a fresh instance on each request.
+//! Providers can be closure-backed providers, shared values registered as
+//! `Arc<T>`, or explicit value providers created with [`cloned`] / [`copied`].
 //!
 //! # Quick Start
 //!
 //! ```
-//! use injectium_core::{Container, container};
+//! use injectium_core::{Container, container, copied};
 //!
-//! // Build a container with singletons and/or factories
+//! // Build a container with providers
 //! let c = container! {
-//!     singletons: [
-//!         42_u32,
-//!         String::from("hello"),
-//!     ],
 //!     providers: [
-//!         |c| format!("value is {}", c.get::<u32>()),
+//!         copied(42_u32),
+//!         |c: &Container| format!("value is {}", c.get::<u32>()),
 //!     ],
 //! };
 //!
-//! // Retrieve a singleton
-//! assert_eq!(*c.get::<u32>(), 42);
-//!
-//! // Resolve a factory (produces a new value each time)
-//! assert_eq!(c.resolve::<String>(), "value is 42");
+//! assert_eq!(c.get::<u32>(), 42);
+//! assert_eq!(c.get::<String>(), "value is 42");
 //! ```
 //!
 //! # Using `#[derive(Injectable)]`
@@ -56,8 +50,8 @@
 //!
 //! // At application startup:
 //! let c = container! {
-//!     singletons: [
-//!         Connection::new(),
+//!     providers: [
+//!         Arc::new(Connection::new()),
 //!         Config { url: "localhost".into() },
 //!     ],
 //! };
@@ -80,26 +74,27 @@
 
 mod container;
 mod inject;
+mod provider;
+mod types;
 
 use cfg_block::cfg_block;
 pub use container::{Container, ContainerBuilder};
 pub use inject::Injectable;
+pub use provider::{CloneProvider, CopyProvider, Provider, cloned, copied};
+pub use types::SyncBounds;
 
-/// Declarative macro for building a container with singletons and/or factory
-/// providers.
+/// Declarative macro for building a container from providers.
 ///
 /// # Example
 ///
 /// ```ignore
 /// let container = container! {
-///     singletons: [
-///         db,
+///     providers: [
+///         Arc::new(db),
 ///         config,
 ///         jwt_secret,
-///     ],
-///     providers: [
-///         |c| MyService::new(c.get::<Db>().clone()),
-///         |c| AnotherService::new(c.get::<Config>().clone()),
+///         |c: &Container| MyService::new(c.get::<Arc<Db>>()),
+///         |c: &Container| AnotherService::new(c.get::<Config>()),
 ///     ]
 /// };
 /// ```
@@ -111,48 +106,11 @@ macro_rules! container {
     (@count_exprs $( $expr:expr ),* $(,)?) => {
         <[()]>::len(&[$($crate::container!(@replace_expr $expr, ())),*])
     };
-    (capacity: { singletons: $singleton_capacity:expr, factories: $factory_capacity:expr } $(,)? singletons: [$( $singleton:expr ),* $(,)?] $(,)? providers: [$( $factory:expr ),* $(,)?] $(,)?) => {{
-        $crate::Container::builder_with_capacity($singleton_capacity, $factory_capacity)
-            $(.singleton($singleton))*
-            $(.factory($factory))*
-            .build()
-    }};
-    (capacity: { singletons: $singleton_capacity:expr, factories: $factory_capacity:expr } $(,)? singletons: [$( $singleton:expr ),* $(,)?] $(,)?) => {{
-        $crate::Container::builder_with_capacity($singleton_capacity, $factory_capacity)
-            $(.singleton($singleton))*
-            .build()
-    }};
-    (capacity: { singletons: $singleton_capacity:expr, factories: $factory_capacity:expr } $(,)? providers: [$( $factory:expr ),* $(,)?] $(,)?) => {{
-        $crate::Container::builder_with_capacity($singleton_capacity, $factory_capacity)
-            $(.factory($factory))*
-            .build()
-    }};
-    // Both singletons and providers
-    (singletons: [$( $singleton:expr ),* $(,)?] $(,)? providers: [$( $factory:expr ),* $(,)?] $(,)?) => {{
+    (providers: [$( $provider:expr ),* $(,)?] $(,)?) => {{
         $crate::Container::builder_with_capacity(
-            $crate::container!(@count_exprs $($singleton),*),
-            $crate::container!(@count_exprs $($factory),*),
+            $crate::container!(@count_exprs $($provider),*),
         )
-            $(.singleton($singleton))*
-            $(.factory($factory))*
-            .build()
-    }};
-    // Only singletons
-    (singletons: [$( $singleton:expr ),* $(,)?] $(,)?) => {{
-        $crate::Container::builder_with_capacity(
-            $crate::container!(@count_exprs $($singleton),*),
-            0,
-        )
-            $(.singleton($singleton))*
-            .build()
-    }};
-    // Only providers
-    (providers: [$( $factory:expr ),* $(,)?] $(,)?) => {{
-        $crate::Container::builder_with_capacity(
-            0,
-            $crate::container!(@count_exprs $($factory),*),
-        )
-            $(.factory($factory))*
+            $(.provider($provider))*
             .build()
     }};
 }
@@ -199,140 +157,133 @@ cfg_block! {
 
 #[cfg(test)]
 mod tests {
-    use crate::Container;
+    use std::sync::Arc;
+
+    use crate::{Container, cloned, copied};
 
     #[test]
-    fn empty_both() {
+    fn empty_providers() {
         let c = container! {
-            singletons: [],
             providers: []
         };
-        assert_eq!(c.singleton_count(), 0);
-        assert_eq!(c.factory_count(), 0);
+        assert_eq!(c.provider_count(), 0);
     }
 
     #[test]
-    fn only_singletons() {
+    fn only_closure_providers() {
         let c = container! {
-            singletons: [1_u32, 2_u64],
-            providers: []
+            providers: [|_c: &Container| 1_u32, |_c: &Container| 2_u64]
         };
-        assert_eq!(c.singleton_count(), 2);
-        assert_eq!(c.factory_count(), 0);
+        assert_eq!(c.provider_count(), 2);
     }
 
     #[test]
-    fn only_providers() {
+    fn cloned_and_closure_providers() {
         let c = container! {
-            singletons: [],
             providers: [
-                |_c| 42_u32,
-                |_c| "hello",
+                cloned(41_u16),
+                |_c: &Container| 42_u32,
+                |_c: &Container| "hello",
             ]
         };
-        assert_eq!(c.singleton_count(), 0);
-        assert_eq!(c.factory_count(), 2);
+        assert_eq!(c.provider_count(), 3);
     }
 
     #[test]
-    fn only_singletons_no_providers_key() {
+    fn providers_with_trailing_comma() {
         let c = container! {
-            singletons: [1_u32, 2_u64]
+            providers: [Arc::new(1_u32), |_c: &Container| 2_u64,]
         };
-        assert_eq!(c.singleton_count(), 2);
-        assert_eq!(c.factory_count(), 0);
+        assert_eq!(c.provider_count(), 2);
     }
 
     #[test]
-    fn only_singletons_no_providers_key_empty() {
-        let c = container! {
-            singletons: []
-        };
-        assert_eq!(c.singleton_count(), 0);
-        assert_eq!(c.factory_count(), 0);
-    }
-
-    #[test]
-    fn only_singletons_no_providers_key_trailing_comma() {
-        let c = container! {
-            singletons: [1_u32,],
-        };
-        assert_eq!(c.singleton_count(), 1);
-        assert_eq!(c.factory_count(), 0);
-    }
-
-    #[test]
-    fn only_providers_no_singletons_key() {
-        let c = container! {
-            providers: [|_c| 42_u32, |_c| "hello"]
-        };
-        assert_eq!(c.singleton_count(), 0);
-        assert_eq!(c.factory_count(), 2);
-    }
-
-    #[test]
-    fn only_providers_no_singletons_key_empty() {
+    fn only_providers_empty() {
         let c = container! {
             providers: []
         };
-        assert_eq!(c.singleton_count(), 0);
-        assert_eq!(c.factory_count(), 0);
+        assert_eq!(c.provider_count(), 0);
     }
 
     #[test]
-    fn only_providers_no_singletons_key_trailing_comma() {
+    fn get_from_arc_and_closure_providers() {
         let c = container! {
-            providers: [|_c| 42_u32,],
+            providers: [Arc::new(1_u32), |_c: &Container| 99_u64]
         };
-        assert_eq!(c.singleton_count(), 0);
-        assert_eq!(c.factory_count(), 1);
-    }
-
-    #[test]
-    fn singletons_and_providers() {
-        let c = container! {
-            singletons: [1_u32],
-            providers: [|_c| 99_u64]
-        };
-        assert_eq!(c.singleton_count(), 1);
-        assert_eq!(c.factory_count(), 1);
-        assert_eq!(*c.get::<u32>(), 1);
-        assert_eq!(c.resolve::<u64>(), 99);
-    }
-
-    #[test]
-    fn trailing_commas() {
-        let c = container! {
-            singletons: [1_u32,],
-            providers: [|_c| 2_u64,],
-        };
-        assert_eq!(c.singleton_count(), 1);
-        assert_eq!(c.factory_count(), 1);
+        assert_eq!(c.provider_count(), 2);
+        assert_eq!(*c.get::<Arc<u32>>(), 1);
+        assert_eq!(c.get::<u64>(), 99);
     }
 
     #[test]
     fn with_capacity_builder() {
-        let c = Container::builder_with_capacity(2, 1)
-            .singleton(1_u32)
-            .singleton(2_u64)
-            .factory(|_c| 3_u8)
+        let c = Container::builder_with_capacity(3)
+            .provider(Arc::new(1_u32))
+            .provider(|_c: &Container| 2_u64)
+            .provider(|_c: &Container| 3_u8)
             .build();
 
-        assert_eq!(c.singleton_count(), 2);
-        assert_eq!(c.factory_count(), 1);
-        assert_eq!(c.resolve::<u8>(), 3);
+        assert_eq!(c.provider_count(), 3);
+        assert_eq!(c.get::<u8>(), 3);
     }
 
     #[test]
-    fn with_capacity_macro() {
+    fn get_clones_explicit_clone_providers() {
+        let c = container! { providers: [cloned(String::from("shared"))] };
+
+        assert_eq!(c.get::<String>(), "shared");
+    }
+
+    #[test]
+    fn get_copies_explicit_copy_providers() {
+        let c = container! { providers: [copied(7_u32)] };
+
+        assert_eq!(c.get::<u32>(), 7);
+    }
+
+    #[test]
+    fn get_executes_closure_providers() {
         let c = container! {
-            capacity: { singletons: 2, factories: 1 },
-            singletons: [1_u32, 2_u64],
-            providers: [|_c| 3_u8],
+            providers: [|_c: &Container| String::from("factory")]
         };
 
-        assert_eq!(c.singleton_count(), 2);
-        assert_eq!(c.factory_count(), 1);
-        assert_eq!(c.resolve::<u8>(), 3);
+        assert_eq!(c.get::<String>(), "factory");
+    }
+
+    #[test]
+    fn builder_contains_registered_output_type() {
+        let builder = Container::builder().provider(Arc::new(String::from("shared")));
+
+        assert!(builder.contains::<Arc<String>>());
+        assert!(builder.contains_provider::<Arc<String>>());
+        assert!(!builder.contains::<u32>());
+    }
+
+    #[test]
+    #[should_panic(
+        expected = "provider already registered for `alloc::sync::Arc<alloc::string::String>`"
+    )]
+    fn duplicate_arc_provider_panics() {
+        let _ = Container::builder()
+            .provider(Arc::new(String::from("first")))
+            .provider(Arc::new(String::from("second")));
+    }
+
+    #[test]
+    #[should_panic(
+        expected = "provider already registered for `alloc::sync::Arc<alloc::string::String>`"
+    )]
+    fn closure_and_arc_provider_conflict_panics() {
+        let _ = Container::builder()
+            .provider(Arc::new(String::from("shared")))
+            .provider(|_c: &Container| Arc::new(String::from("factory")));
+    }
+
+    #[test]
+    #[should_panic(expected = "provider already registered for `alloc::string::String`")]
+    fn duplicate_closure_provider_panics() {
+        let _ = Container::builder()
+            .provider(|_c: &Container| String::from("first"))
+            .provider(|_c: &Container| String::from("second"));
     }
 }

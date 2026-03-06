@@ -14,24 +14,20 @@ cargo add injectium-core
 ## Quick Start
 
 ```rust
+use std::sync::Arc;
+
 use injectium_core::{Container, container};
 
-// Build a container with singletons and/or factories
+// Build a container from providers
 let c = container! {
-    singletons: [
-        42_u32,
-        String::from("hello"),
-    ],
     providers: [
-        |c| format!("value is {}", c.get::<u32>()),
+        Arc::new(42_u32),
+        |c: &Container| format!("value is {}", c.get::<Arc<u32>>().as_ref()),
     ],
 };
 
-// Retrieve a singleton
-assert_eq!(*c.get::<u32>(), 42);
-
-// Resolve a factory (produces a new value each time)
-assert_eq!(c.resolve::<String>(), "value is 42");
+assert_eq!(*c.get::<Arc<u32>>(), 42);
+assert_eq!(c.get::<String>(), "value is 42");
 ```
 
 ## Documentation
@@ -40,4 +36,4 @@ See [docs.rs](https://docs.rs/injectium-core) for full API documentation.
 
 ## License
 
-[MIT](../LICENSE). Made with ❤️ by [Ray](https://github.com/so1ve)
+[MIT](../../LICENSE). Made with ❤️ by [Ray](https://github.com/so1ve)

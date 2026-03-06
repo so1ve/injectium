@@ -1,17 +1,13 @@
-use injectium_core::container;
+use injectium_core::{Container, cloned, container};
 
 #[rustfmt::skip]
 fn main() {
-    let _both = container! {
-        singletons: [1_u32, 2_u64],
-        providers: [|_c| 3_u8, |_c| 4_u16],
-    };
-
-    let _singletons = container! {
-        singletons: [1_u32, 2_u64],
-    };
-
     let _providers = container! {
-        providers: [|_c| 3_u8, |_c| 4_u16],
+        providers: [
+            cloned(1_u32),
+            |_c: &Container| 2_u64,
+            |_c: &Container| 3_u8,
+            |_c: &Container| 4_u16,
+        ],
     };
 }

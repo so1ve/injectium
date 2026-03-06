@@ -1,20 +1,9 @@
-use std::any::{Any, TypeId};
+use std::any::{TypeId, type_name};
 
 use cfg_block::cfg_block;
 
-cfg_block! {
-    if #[cfg(feature = "sync")] {
-        type AnyDyn = dyn Any + Send + Sync;
-        type Factory = dyn Fn(&Container) -> Box<AnyDyn> + Send + Sync;
-        pub trait SyncBounds: Send + Sync + 'static {}
-        impl<T: Send + Sync + 'static> SyncBounds for T {}
-    } else {
-        type AnyDyn = dyn Any;
-        type Factory = dyn Fn(&Container) -> Box<AnyDyn>;
-        pub trait SyncBounds: 'static {}
-        impl<T: 'static> SyncBounds for T {}
-    }
-}
+use crate::provider::Provider;
+use crate::types::{AnyDyn, ErasedProvider, SyncBounds};
 
 cfg_block! {
     #[cfg(feature = "validation")] {
@@ -40,25 +29,28 @@ cfg_block! {
     }
 }
 
-struct SingletonEntry {
+struct RegistrationEntry {
     type_id: TypeId,
-    value: Box<AnyDyn>,
+    provider: Box<ErasedProvider>,
 }
 
-struct FactoryEntry {
+#[inline]
+fn registrations_contain_type_id<'a>(
+    registrations: impl IntoIterator<Item = &'a RegistrationEntry>,
     type_id: TypeId,
-    factory: Box<Factory>,
+) -> bool {
+    registrations
+        .into_iter()
+        .any(|entry| entry.type_id == type_id)
 }
 
 /// A runtime dependency-injection container.
 ///
-/// `Container` stores two kinds of registrations:
+/// `Container` stores one provider per type.
 ///
-/// - **Singletons** – a pre-built value of type `T`, returned by shared
-///   reference on every call to [`get`](Container::get).
-/// - **Factories** – a closure that constructs a fresh `T` on each call to
-///   [`resolve`](Container::resolve), with access to the container so it can
-///   pull its own dependencies.
+/// A provider can be a closure that constructs a fresh value, or an [`Arc`]
+/// that clones and returns shared state. Consumers use [`get`](Container::get)
+/// to retrieve an owned value regardless of how that provider is implemented.
 ///
 /// Containers are built through [`ContainerBuilder`] (or the
 /// [`container!`](crate::container!) macro) and are typically wrapped in an
@@ -70,16 +62,14 @@ struct FactoryEntry {
 /// use injectium_core::{Container, container};
 ///
 /// let c = container! {
-///     singletons: [42_u32],
-///     providers:  [|_| "hello"],
+///     providers: [|_: &Container| 42_u32, |_: &Container| "hello"],
 /// };
 ///
-/// assert_eq!(*c.get::<u32>(), 42);
-/// assert_eq!(c.resolve::<&str>(), "hello");
+/// assert_eq!(c.get::<u32>(), 42);
+/// assert_eq!(c.get::<&str>(), "hello");
 /// ```
 pub struct Container {
-    singletons: Box<[SingletonEntry]>,
-    factories: Box<[FactoryEntry]>,
+    registrations: Box<[RegistrationEntry]>,
 }
 
 cfg_block! {
@@ -89,8 +79,7 @@ cfg_block! {
         impl fmt::Debug for Container {
             fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
                 f.debug_struct("Container")
-                    .field("singletons", &self.singletons.len())
-                    .field("factories", &self.factories.len())
+                    .field("providers", &self.provider_count())
                     .finish()
             }
         }
@@ -99,9 +88,8 @@ cfg_block! {
             fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
                 write!(
                     f,
-                    "Container ({} singletons, {} factories)",
-                    self.singletons.len(),
-                    self.factories.len()
+                    "Container ({} providers)",
+                    self.provider_count()
                 )
             }
         }
@@ -118,18 +106,19 @@ cfg_block! {
 /// # Example
 ///
 /// ```
+/// use std::sync::Arc;
+///
 /// use injectium_core::Container;
 ///
 /// let c = Container::builder()
-///     .singleton(42_u32)
-///     .factory(|_| "hello")
+///     .provider(Arc::new(42_u32))
+///     .provider(|_: &Container| "hello")
 ///     .build();
 ///
-/// assert_eq!(*c.get::<u32>(), 42);
+/// assert_eq!(c.get::<Arc<u32>>().as_ref(), &42);
 /// ```
 pub struct ContainerBuilder {
-    singletons: Vec<SingletonEntry>,
-    factories: Vec<FactoryEntry>,
+    registrations: Vec<RegistrationEntry>,
 }
 
 impl Default for ContainerBuilder {
@@ -142,118 +131,98 @@ impl ContainerBuilder {
     /// Creates an empty builder with no registrations.
     #[must_use]
     pub fn new() -> Self {
-        Self::with_capacity(0, 0)
+        Self::with_capacity(0)
     }
 
-    /// Creates an empty builder with preallocated storage capacities.
+    /// Creates an empty builder with preallocated storage capacity for the
+    /// expected number of providers.
+    ///
+    /// These values are only allocation hints. Duplicate registrations are not
+    /// allowed, so the final number of stored registrations may still be
+    /// smaller than the requested capacity.
     #[must_use]
-    pub fn with_capacity(singleton_capacity: usize, factory_capacity: usize) -> Self {
+    pub fn with_capacity(capacity: usize) -> Self {
         Self {
-            singletons: Vec::with_capacity(singleton_capacity),
-            factories: Vec::with_capacity(factory_capacity),
+            registrations: Vec::with_capacity(capacity),
         }
     }
 
-    /// Registers a singleton value of type `T`.
-    ///
-    /// The value is stored once and returned by shared reference on every
-    /// [`Container::get`] call. Registering a second value of the same type
-    /// silently replaces the first.
-    #[must_use]
-    pub fn singleton<T: SyncBounds>(mut self, value: T) -> Self {
-        let type_id = TypeId::of::<T>();
-
-        if let Some(entry) = self
-            .singletons
-            .iter_mut()
-            .find(|entry| entry.type_id == type_id)
-        {
-            entry.value = Box::new(value);
-        } else {
-            self.singletons.push(SingletonEntry {
-                type_id,
-                value: Box::new(value),
-            });
-        }
-
-        self
+    #[inline]
+    fn contains_type_id(&self, type_id: TypeId) -> bool {
+        registrations_contain_type_id(self.registrations.iter(), type_id)
     }
 
-    /// Registers a factory closure for type `T`.
-    ///
-    /// The closure receives a reference to the finished [`Container`] so it
-    /// can resolve its own dependencies, and is called on every
-    /// [`Container::resolve`] invocation to produce a fresh `T`. Registering
-    /// a second factory for the same type silently replaces the first.
+    /// Returns `true` if a provider producing `T` is already registered in this
+    /// builder.
     #[must_use]
-    pub fn factory<T, F>(mut self, f: F) -> Self
+    pub fn contains<T: 'static>(&self) -> bool {
+        self.contains_type_id(TypeId::of::<T>())
+    }
+
+    /// Returns `true` if a provider of type `P` would conflict with an existing
+    /// registration in this builder.
+    #[must_use]
+    pub fn contains_provider<P>(&self) -> bool
     where
-        T: SyncBounds,
-        F: Fn(&Container) -> T + SyncBounds,
+        P: Provider + SyncBounds,
     {
-        let type_id = TypeId::of::<T>();
-        let f = move |c: &Container| -> Box<AnyDyn> { Box::new(f(c)) };
+        self.contains::<P::Output>()
+    }
 
-        if let Some(entry) = self
-            .factories
-            .iter_mut()
-            .find(|entry| entry.type_id == type_id)
-        {
-            entry.factory = Box::new(f);
-        } else {
-            self.factories.push(FactoryEntry {
-                type_id,
-                factory: Box::new(f),
-            });
-        }
+    /// Registers a provider for values of type `T`.
+    ///
+    /// Providers are automatically supported for closures and [`Arc`] values.
+    ///
+    /// # Panics
+    ///
+    /// Panics if a provider for the same output type has already been
+    /// registered in this builder.
+    #[must_use]
+    pub fn provider<P>(self, provider: P) -> Self
+    where
+        P: Provider + SyncBounds,
+    {
+        let type_id = TypeId::of::<P::Output>();
+        assert!(
+            !self.contains_type_id(type_id),
+            "provider already registered for `{}`",
+            type_name::<P::Output>()
+        );
 
-        self
+        let provider =
+            move |container: &Container| -> Box<AnyDyn> { Box::new(provider.provide(container)) };
+
+        let mut registrations = self.registrations;
+        registrations.push(RegistrationEntry {
+            type_id,
+            provider: Box::new(provider),
+        });
+
+        Self { registrations }
     }
 
     /// Consumes the builder and returns the finished [`Container`].
     #[must_use]
     pub fn build(self) -> Container {
         Container {
-            singletons: self.singletons.into_boxed_slice(),
-            factories: self.factories.into_boxed_slice(),
+            registrations: self.registrations.into_boxed_slice(),
         }
     }
 }
 
 impl Container {
     #[inline]
-    fn singleton_erased(&self, type_id: TypeId) -> Option<&AnyDyn> {
-        self.singletons
+    fn provider_for(&self, type_id: TypeId) -> Option<&ErasedProvider> {
+        self.registrations
             .iter()
+            .rev()
             .find(|entry| entry.type_id == type_id)
-            .map(|entry| entry.value.as_ref())
-    }
-
-    #[inline]
-    fn factory_for(&self, type_id: TypeId) -> Option<&Factory> {
-        self.factories
-            .iter()
-            .find(|entry| entry.type_id == type_id)
-            .map(|entry| entry.factory.as_ref())
+            .map(|entry| entry.provider.as_ref())
     }
 
     #[inline]
     fn contains_type_id(&self, type_id: TypeId) -> bool {
-        self.singletons.iter().any(|entry| entry.type_id == type_id)
-            || self.factories.iter().any(|entry| entry.type_id == type_id)
-    }
-
-    #[inline]
-    fn cast_singleton_unchecked<T: SyncBounds>(erased: &AnyDyn) -> &T {
-        debug_assert!(erased.is::<T>());
-        let ptr = (erased as *const AnyDyn).cast::<T>();
-
-        unsafe {
-            // SAFETY: `singleton` stores values using `TypeId::of::<T>()` as key,
-            // and `try_get::<T>` looks up with the same key. Therefore the value
-            // behind this entry is guaranteed to be `T`.
-            &*ptr
-        }
+        registrations_contain_type_id(self.registrations.iter(), type_id)
     }
 
     #[inline]
@@ -262,10 +231,10 @@ impl Container {
         let ptr = Box::into_raw(owned_erased).cast::<T>();
 
         unsafe {
-            // SAFETY: `factory::<T>` stores closures under `TypeId::of::<T>()` and
-            // each stored closure returns `Box::new(f(c))` where the concrete value
-            // is exactly `T`. `try_resolve::<T>` uses the same key, so this cast is
-            // valid and ownership is preserved when reconstructing the box.
+            // SAFETY: `provider::<T>` stores providers under `TypeId::of::<T>()` and
+            // each stored provider returns `Box::new(provider.provide(c))` where the
+            // concrete value is exactly `T`. `try_get::<T>` uses the same key, so
+            // this cast is valid and ownership is preserved when reconstructing the box.
             *Box::from_raw(ptr)
         }
     }
@@ -278,61 +247,33 @@ impl Container {
         ContainerBuilder::new()
     }
 
-    /// Returns a new [`ContainerBuilder`] with preallocated storage capacities.
+    /// Returns a new [`ContainerBuilder`] with preallocated storage capacity.
     #[must_use]
-    pub fn builder_with_capacity(
-        singleton_capacity: usize,
-        factory_capacity: usize,
-    ) -> ContainerBuilder {
-        ContainerBuilder::with_capacity(singleton_capacity, factory_capacity)
+    pub fn builder_with_capacity(capacity: usize) -> ContainerBuilder {
+        ContainerBuilder::with_capacity(capacity)
     }
 
-    /// Returns a shared reference to the singleton of type `T`.
+    /// Returns the current value for type `T`.
     ///
     /// # Panics
     ///
-    /// Panics if no singleton of type `T` has been registered. Use
+    /// Panics if no provider of type `T` has been registered. Use
     /// [`try_get`](Container::try_get) for a non-panicking alternative.
     #[must_use]
-    pub fn get<T: SyncBounds>(&self) -> &T {
+    pub fn get<T: SyncBounds>(&self) -> T {
         self.try_get().expect("dependency not registered")
     }
 
-    /// Returns a shared reference to the singleton of type `T`, or `None` if
-    /// it is not registered.
+    /// Returns the current value for type `T`, or `None` if no provider is
+    /// registered.
     #[must_use]
-    pub fn try_get<T: SyncBounds>(&self) -> Option<&T> {
-        self.singleton_erased(TypeId::of::<T>())
-            .map(Self::cast_singleton_unchecked::<T>)
-    }
-
-    /// Invokes the factory for type `T` and returns the produced value.
-    ///
-    /// The factory closure receives a reference to this container, so it can
-    /// pull any additional dependencies it needs.
-    ///
-    /// # Panics
-    ///
-    /// Panics if no factory for type `T` has been registered, or if the
-    /// factory's output cannot be downcast to `T`. Use
-    /// [`try_resolve`](Container::try_resolve) for a non-panicking
-    /// alternative.
-    #[must_use]
-    pub fn resolve<T: SyncBounds>(&self) -> T {
-        self.try_resolve()
-            .expect("factory not registered or failed")
-    }
-
-    /// Invokes the factory for type `T` and returns the produced value, or
-    /// `None` if no factory is registered for `T`.
-    #[must_use]
-    pub fn try_resolve<T: SyncBounds>(&self) -> Option<T> {
-        let boxed = (self.factory_for(TypeId::of::<T>())?)(self);
+    pub fn try_get<T: SyncBounds>(&self) -> Option<T> {
+        let boxed = (self.provider_for(TypeId::of::<T>())?)(self);
 
         Some(Self::cast_owned_unchecked::<T>(boxed))
     }
 
-    /// Returns `true` if a singleton **or** factory is registered for `T`.
+    /// Returns `true` if a provider is registered for `T`.
     #[must_use]
     pub fn contains<T: 'static>(&self) -> bool {
         self.contains_type_id(TypeId::of::<T>())
@@ -379,15 +320,9 @@ impl Container {
         }
     }
 
-    /// Returns the number of registered singletons.
+    /// Returns the number of registered providers.
     #[must_use]
-    pub fn singleton_count(&self) -> usize {
-        self.singletons.len()
-    }
-
-    /// Returns the number of registered factories.
-    #[must_use]
-    pub fn factory_count(&self) -> usize {
-        self.factories.len()
+    pub fn provider_count(&self) -> usize {
+        self.registrations.len()
     }
 }

@@ -7,24 +7,24 @@
 //! # Quick Start
 //!
 //! ```
-//! use injectium::{Injectable, container};
+//! use injectium::{Container, Injectable, cloned, container};
 //!
 //! #[derive(Clone)]
-//! struct Db {
+//! struct DbConnection {
 //!     conn: String,
 //! }
 //!
 //! #[derive(Injectable)]
 //! struct Service {
-//!     db: Db,
-//!     random_string: String,
+//!     db: DbConnection,
+//!     greeting: String,
 //! }
 //!
 //! // At startup, build the container
 //! let c = container! {
-//!     singletons: [
-//!         Db { conn: "postgres://localhost".into() },
-//!         String::from("connection string"),
+//!     providers: [
+//!         cloned(DbConnection { conn: "postgres://localhost".into() }),
+//!         |_: &Container| String::from("hello from provider"),
 //!     ],
 //! };
 //!
@@ -35,23 +35,25 @@
 //! let svc = Service::from_container(&c);
 //!
 //! assert_eq!(svc.db.conn, "postgres://localhost");
-//! assert_eq!(svc.random_string, "connection string");
+//! assert_eq!(svc.greeting, "hello from provider");
 //! ```
 //!
 //! # Key Types
 //!
-//! - [`Container`] – the runtime container holding singletons and factories.
+//! - [`Container`] – the runtime container holding typed providers.
 //! - [`ContainerBuilder`] – fluent builder for constructing a container.
 //! - [`Injectable`] – trait for types that can construct themselves from a
 //!   container. Implement via `#[derive(Injectable)]`.
-//! - [`container`] – macro for building a container with singletons and
-//!   factories.
+//! - [`Provider`] – trait implemented by closure providers and `Arc<T>` values.
+//! - [`cloned`] – helper for explicitly registering clone-on-read providers.
+//! - [`copied`] – helper for explicitly registering copy-on-read providers.
+//! - [`container`] – macro for building a container from providers.
 //! - [`declare_dependency!`] – manually declare a type is required (usually
 //!   automatic via `#[derive(Injectable)]`).
 
 pub use injectium_core::{
-    Container, ContainerBuilder, DeclaredDependency, Injectable, container, declare_dependency,
-    inventory,
+    CloneProvider, Container, ContainerBuilder, CopyProvider, DeclaredDependency, Injectable,
+    Provider, cloned, container, copied, declare_dependency, inventory,
 };
 #[cfg(feature = "derive")]
 pub use injectium_macro::Injectable;

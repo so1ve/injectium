@@ -24,12 +24,12 @@
 //! ## 2. Build the container
 //!
 //! ```ignore
-//! use injectium::container;
+//! use injectium::{cloned, container};
 //! use std::sync::Arc;
 //!
 //! let container = Arc::new(container! {
-//!     singletons: [
-//!         Database { connection_string: "postgres://localhost".into() },
+//!     providers: [
+//!         cloned(Database { connection_string: "postgres://localhost".into() }),
 //!     ],
 //! });
 //! ```
@@ -94,7 +94,7 @@ use salvo::prelude::*;
 /// # Example
 ///
 /// ```ignore
-/// use injectium::{Injectable, container};
+/// use injectium::{Injectable, cloned, container};
 /// use injectium_salvo::{Injected, inject_container};
 /// use salvo::prelude::*;
 /// use std::sync::Arc;
@@ -110,7 +110,7 @@ use salvo::prelude::*;
 /// }
 ///
 /// let container = Arc::new(container! {
-///     singletons: [DbService { conn: "localhost".into() }],
+///     providers: [cloned(DbService { conn: "localhost".into() })],
 /// });
 ///
 /// let router = Router::new()

@@ -14,7 +14,7 @@ use syn::{DeriveInput, parse_macro_input};
 ///
 /// When applied to a named struct, this macro generates:
 ///
-/// 1. An implementation of `from_container(&Container) -> Self` that clones
+/// 1. An implementation of `from_container(&Container) -> Self` that resolves
 ///    each field from the container using `container.get::<T>()`.
 /// 2. An implementation of `try_from_container(&Container) -> Option<Self>`
 ///    that uses `container.try_get::<T>()` for graceful missing-dependency
@@ -25,7 +25,6 @@ use syn::{DeriveInput, parse_macro_input};
 /// # Requirements
 ///
 /// - The struct must be a named struct (not a tuple struct or enum).
-/// - All field types must implement `Clone`.
 /// - All field types must be `'static`.
 ///
 /// # Example

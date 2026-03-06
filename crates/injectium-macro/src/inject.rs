@@ -11,13 +11,13 @@ pub(crate) fn expand_inject(input: DeriveInput) -> Result<proc_macro2::TokenStre
         impl #impl_gens injectium::Injectable for #name #ty_gens #where_clause {
             fn from_container(container: &injectium::Container) -> Self {
                 Self {
-                    #(#idents: container.get::<#types>().clone(),)*
+                    #(#idents: container.get::<#types>(),)*
                 }
             }
 
             fn try_from_container(container: &injectium::Container) -> Option<Self> {
                 Some(Self {
-                    #(#idents: container.try_get::<#types>()?.clone(),)*
+                    #(#idents: container.try_get::<#types>()?,)*
                 })
             }
         }

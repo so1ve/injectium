@@ -22,5 +22,5 @@ criterion = "0.8"
 macrotest = "1"
 
 [[bench]]
-name = "resolve"
+name = "bench"
 harness = false

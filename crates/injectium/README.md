@@ -14,7 +14,7 @@ cargo add injectium
 ## Quick Start
 
 ```rust
-use injectium::{Injectable, container};
+use injectium::{Injectable, cloned, container};
 
 #[derive(Clone)]
 struct Db {
@@ -28,8 +28,8 @@ struct Service {
 
 // At startup, build the container
 let c = container! {
-    singletons: [
-        Db { conn: "postgres://localhost".into() },
+    providers: [
+        cloned(Db { conn: "postgres://localhost".into() }),
     ],
 };
 
@@ -55,4 +55,4 @@ See [docs.rs](https://docs.rs/injectium) for full API documentation.
 
 ## License
 
-[MIT](../LICENSE). Made with ❤️ by [Ray](https://github.com/so1ve)
+[MIT](../../LICENSE). Made with ❤️ by [Ray](https://github.com/so1ve)

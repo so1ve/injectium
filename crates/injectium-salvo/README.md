@@ -14,10 +14,11 @@ cargo add injectium-salvo
 ## Quick Start
 
 ```rust
-use injectium::{container, Injectable};
-use injectium_salvo::{inject_container, Injected};
-use salvo::prelude::*;
 use std::sync::Arc;
+
+use injectium::{Injectable, cloned, container};
+use injectium_salvo::{Injected, inject_container};
+use salvo::prelude::*;
 
 // Define your services
 #[derive(Clone, Injectable)]
@@ -32,8 +33,8 @@ struct UserService {
 
 // Build the container
 let container = Arc::new(container! {
-    singletons: [
-        DbService { connection_string: "postgres://localhost".into() },
+    providers: [
+        cloned(DbService { connection_string: "postgres://localhost".into() }),
     ],
 });
 
@@ -58,4 +59,4 @@ See [docs.rs](https://docs.rs/injectium-salvo) for full API documentation.
 
 ## License
 
-[MIT](../LICENSE). Made with ❤️ by [Ray](https://github.com/so1ve)
+[MIT](../../LICENSE). Made with ❤️ by [Ray](https://github.com/so1ve)
