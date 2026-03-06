@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.4.0](https://github.com/so1ve/injectium/compare/injectium-salvo-v0.3.0...injectium-salvo-v0.4.0) - 2026-03-06
+
+### Added
+
+- *(core)* [**breaking**] unify provider model and tighten container registration semantics
+
 ## [0.2.0](https://github.com/so1ve/injectium/compare/injectium-salvo-v0.1.1...injectium-salvo-v0.2.0) - 2026-02-24
 
 ### Other
