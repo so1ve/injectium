@@ -1444,7 +1444,7 @@ dependencies = [
 
 [[package]]
 name = "injectium"
-version = "0.3.0"
+version = "0.4.0"
 dependencies = [
  "injectium-core",
  "injectium-macro",
@@ -1452,7 +1452,7 @@ dependencies = [
 
 [[package]]
 name = "injectium-core"
-version = "0.3.0"
+version = "0.4.0"
 dependencies = [
  "cfg_block",
  "criterion",
@@ -1462,7 +1462,7 @@ dependencies = [
 
 [[package]]
 name = "injectium-macro"
-version = "0.3.0"
+version = "0.4.0"
 dependencies = [
  "proc-macro2",
  "quote",
@@ -1471,7 +1471,7 @@ dependencies = [
 
 [[package]]
 name = "injectium-salvo"
-version = "0.3.0"
+version = "0.4.0"
 dependencies = [
  "cfg_block",
  "injectium",
