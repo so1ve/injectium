@@ -18,7 +18,7 @@ injectium-salvo = { path = "crates/injectium-salvo", version = "0.4" }
 inventory = "0.3.22"
 proc-macro2 = "1"
 quote = "1"
-salvo = { version = "0.89", features = ["affix-state"] }
+salvo = { version = "0.96", features = ["affix-state"] }
 syn = "2"
 
 [workspace.lints.clippy]
