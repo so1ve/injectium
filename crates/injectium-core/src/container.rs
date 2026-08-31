@@ -231,10 +231,12 @@ impl Container {
         let ptr = Box::into_raw(owned_erased).cast::<T>();
 
         unsafe {
-            // SAFETY: `provider::<T>` stores providers under `TypeId::of::<T>()` and
-            // each stored provider returns `Box::new(provider.provide(c))` where the
-            // concrete value is exactly `T`. `try_get::<T>` uses the same key, so
-            // this cast is valid and ownership is preserved when reconstructing the box.
+            // SAFETY: `provider::<T>` stores providers under
+            // `TypeId::of::<T>()` and each stored provider returns
+            // `Box::new(provider.provide(c))` where the
+            // concrete value is exactly `T`. `try_get::<T>` uses the same key,
+            // so this cast is valid and ownership is preserved when
+            // reconstructing the box.
             *Box::from_raw(ptr)
         }
     }
